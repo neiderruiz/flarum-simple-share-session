@@ -60,7 +60,7 @@ class AuthMiddleware implements MiddlewareInterface
                         'username' => $responseUser['username'],
                         'email' => $responseUser['email'],
                         'name' => $responseUser['name'],
-                        'password' => bcrypt($responseUser['password']),
+                        'password' => bcrypt(bin2hex(random_bytes(16))),
                         'is_email_confirmed' => true,
                     ]);
                 }
