@@ -17,6 +17,8 @@ use Flarum\Http\RememberAccessToken;
 use Flarum\User\Event\LoggedIn;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Flarum\Settings\SettingsRepositoryInterface;
+use Flarum\User\Command\RegisterUser;
+use Illuminate\Contracts\Bus\Dispatcher;
 
 
 class AuthMiddleware implements MiddlewareInterface
@@ -56,13 +58,26 @@ class AuthMiddleware implements MiddlewareInterface
                 $user = User::where('email', $responseUser['email'])->first();
 
                 if(!$user) {
-                    $user = User::create([
-                        'username' => $responseUser['username'],
-                        'email' => $responseUser['email'],
-                        'name' => $responseUser['name'],
-                        'password' => password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT),
-                        'is_email_confirmed' => true,
-                    ]);
+
+                    $data = [
+                        'attributes' => [
+                            'username' => $responseUser['username'] ?? $responseUser['email'],
+                            'email' => $responseUser['email'],
+                            'password' => password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT),
+                            'is_email_confirmed' => true,
+                        ],
+                    ];
+
+                    $bus = resolve(Dispatcher::class);
+                    $user = $bus->dispatch(new RegisterUser($actor, $data));
+
+                }
+
+                $auto_comfirm_accounts = $this->settings->get('neiderruiz_fsss.auto_confirm_accounts');
+
+                if($auto_comfirm_accounts){
+                    $user->activate();
+                    $user->save();
                 }
 
                 if ($user) {
